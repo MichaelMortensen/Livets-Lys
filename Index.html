@@ -1,0 +1,263 @@
+<!doctype html>
+<html lang="da"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Livets lys</title>
+<style>
+:root{color-scheme:dark;box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px);
+--panel:#16131c;--ptext:#ece6dc;--pmute:#9a93a3;--pline:#2d2937;--inp:#0e0c12;--acc:#f0c987}
+@media (prefers-color-scheme:light){:root:not([data-theme="dark"]){--panel:#f6f2ea;--ptext:#1d1a22;--pmute:#6b6573;--pline:#d9d2c5;--inp:#fff}}
+html,body{height:100%;margin:0;background:#050408;font-family:system-ui,-apple-system,"Segoe UI",sans-serif;color:#ece6dc}
+#app{height:100%;display:flex;flex-direction:column}
+#stage{flex:1;min-height:0;position:relative}
+#cv{position:absolute;inset:0;width:100%;height:100%;display:block}
+#hud{position:absolute;top:10px;left:0;right:0;text-align:center;pointer-events:none}
+#age{font-size:64px;font-weight:200;opacity:.75;line-height:1}
+#yr{font-size:12px;letter-spacing:.3em;opacity:.45;margin-top:4px}
+#bar{display:flex;gap:12px;align-items:center;padding:10px 14px;background:#0a080d}
+#bar button{background:none;border:1px solid #3a3446;color:#ece6dc;border-radius:20px;padding:8px 14px;font-size:14px}
+#sl{flex:1;accent-color:#f0c987}
+#bar button.on{border-color:#f0c987;color:#f0c987}
+#ytw{position:fixed;right:10px;bottom:70px;width:210px;height:118px;z-index:4;border-radius:10px;overflow:hidden;box-shadow:0 4px 20px #000a;background:#000}
+#toast{position:fixed;left:50%;transform:translateX(-50%);bottom:76px;background:#000d;color:#ece6dc;padding:8px 14px;border-radius:16px;font-size:13px;z-index:9;white-space:nowrap}
+#panel{position:fixed;left:0;right:0;bottom:0;max-height:82%;overflow:auto;background:var(--panel);color:var(--ptext);padding:16px 16px calc(20px + env(safe-area-inset-bottom,0px));border-radius:18px 18px 0 0;box-shadow:0 -10px 40px #000a;box-sizing:border-box;z-index:5}
+#panel[hidden]{display:none}
+h2{margin:0 0 12px;font-size:18px}h3{margin:18px 0 8px;font-size:14px;color:var(--pmute);font-weight:600}
+label{display:block;font-size:12px;color:var(--pmute);margin:8px 0 3px}
+input,select,textarea{width:100%;box-sizing:border-box;background:var(--inp);color:var(--ptext);border:1px solid var(--pline);border-radius:8px;padding:9px;font-size:15px}
+.row{display:flex;gap:10px}.row>div{flex:1}
+ul{list-style:none;margin:0;padding:0}
+li{display:flex;align-items:center;gap:10px;padding:8px 0;border-bottom:1px solid var(--pline)}
+li .d{width:10px;height:10px;border-radius:50%;flex:none}
+li .t{flex:1;font-size:15px}li .t small{display:block;color:var(--pmute);font-size:12px}
+li button,.btn{background:none;border:1px solid var(--pline);color:var(--ptext);border-radius:8px;padding:6px 10px;font-size:14px}
+.btn.p{background:var(--acc);color:#1d1a22;border-color:var(--acc);font-weight:600}
+.acts{display:flex;gap:8px;margin-top:14px}
+</style></head><body>
+<div id="app">
+ <div id="stage"><canvas id="cv"></canvas><div id="hud"><div id="age">0</div><div id="yr"></div></div></div>
+ <div id="bar"><button id="play">❚❚</button><input id="sl" type="range" min="0" max="1000" value="0"><button id="mu" title="Musik">♪</button><button id="sh">Del</button><button id="ed">Redigér</button></div>
+ <div id="ytw" hidden></div>
+ <div id="toast" hidden></div>
+ <section id="panel" hidden>
+  <h2>Dit liv</h2>
+  <div class="row"><div><label>Dit navn</label><input id="nm"></div><div><label>Fødselsdato</label><input id="bd" type="date"></div></div>
+  <h3>Personer</h3><ul id="list"></ul>
+  <h3 id="fh">Tilføj person</h3>
+  <label>Navn</label><input id="fn" placeholder="fx Mormor">
+  <div class="row"><div><label>Type</label><select id="fc"></select></div><div><label>Kom ind i dit liv</label><input id="ff" type="date"></div></div>
+  <div class="row"><div><label>Status</label><select id="fs"><option value="med">Stadig med mig</option><option value="vaek">Gået ud af mit liv</option><option value="dod">Død</option></select></div><div id="tw"><label>Dato</label><input id="ft" type="date"></div></div>
+  <div class="acts"><button class="btn p" id="save">Tilføj</button><button class="btn" id="cancel" hidden>Annullér</button><button class="btn" id="close" style="margin-left:auto">Luk</button></div>
+  <h3>Musik fra YouTube</h3><input id="yl" placeholder="Indsæt YouTube-link">
+  <div class="acts"><button class="btn" id="ys">Gem link</button><button class="btn" id="yx">Brug klaver i stedet</button></div>
+  <h3>Sikkerhedskopi</h3><textarea id="bk" rows="3" placeholder="Tryk Vis data og gem teksten et sted. Indsæt den her og tryk Indlæs data for at gendanne."></textarea>
+  <div class="acts"><button class="btn" id="ex">Vis data</button><button class="btn" id="im">Indlæs data</button></div>
+ </section>
+</div>
+<script>
+const $=s=>document.querySelector(s);
+const CATS={bedste:{n:'Bedsteforælder',c:'255,176,92'},foraelder:{n:'Forælder',c:'255,200,120'},soeskende:{n:'Søskende',c:'255,214,150'},barn:{n:'Barn',c:'255,225,160'},partner:{n:'Partner',c:'255,150,130'},ven:{n:'Ven',c:'140,190,255'},dyr:{n:'Kæledyr',c:'140,230,170'},familie:{n:'Anden familie',c:'255,196,110'}};
+const ST={med:'Med mig',vaek:'Gået ud af livet',dod:'Død'};
+const KEY='livets-lys-v1';
+const yr=s=>Date.parse(s)/31557600000+1970;
+const clamp=(v,a=0,b=1)=>Math.max(a,Math.min(b,v));
+function demo(){return{name:'Dig',birth:'1990-06-15',people:[
+{id:1,name:'Mor',cat:'familie',from:'1990-06-15',st:'med'},
+{id:2,name:'Far',cat:'familie',from:'1990-06-15',st:'med'},
+{id:3,name:'Mormor',cat:'familie',from:'1990-06-15',st:'dod',to:'2008-02-10'},
+{id:4,name:'Farfar',cat:'familie',from:'1990-06-15',st:'dod',to:'2015-11-03'},
+{id:5,name:'Bjørn',cat:'dyr',from:'1998-04-01',st:'dod',to:'2011-08-20'},
+{id:6,name:'Mads',cat:'ven',from:'2001-09-01',st:'vaek',to:'2013-05-01'},
+{id:7,name:'Sofie',cat:'partner',from:'2012-06-01',st:'med'},
+{id:8,name:'Alma',cat:'barn',from:'2018-03-10',st:'med'}]}}
+let S;try{S=JSON.parse(localStorage.getItem(KEY))}catch(e){}
+if(!S||!S.people)S=demo();
+const save=()=>{try{localStorage.setItem(KEY,JSON.stringify(S))}catch(e){}};
+const GUESS=n=>/mormor|morfar|farmor|farfar|bedste|oldemor|oldefar/i.test(n)?'bedste':/^(mor|far|mama|mamma|papa|moder|fader|stedmor|stedfar)$/i.test(n.trim())?'foraelder':/bror|søster|søskende/i.test(n)?'soeskende':'familie';
+if(S.yt===undefined)S.yt='sFSWlfZ4CXM';
+S.people.forEach(p=>{if(p.cat==='familie')p.cat=GUESS(p.name)});save();
+
+const cv=$('#cv'),ctx=cv.getContext('2d');let W=300,H=500;
+function fit(){const d=Math.min(devicePixelRatio||1,2),r=cv.getBoundingClientRect();W=r.width;H=r.height;cv.width=W*d;cv.height=H*d;ctx.setTransform(d,0,0,d,0,0)}
+new ResizeObserver(fit).observe($('#stage'));fit();
+
+const SPEED=1.4;let T=yr(S.birth),playing=true,last=performance.now();
+const todayY=()=>Date.now()/31557600000+1970;
+const dust=Array.from({length:90},()=>({x:Math.random(),y:Math.random(),l:Math.random()*30+8,s:Math.random()*.6+.2,a:Math.random()*.3+.05}));
+
+function lanes(){
+ const cx=W/2,ROW={bedste:0,foraelder:1,partner:2,soeskende:3,familie:3.5,barn:4,ven:5,dyr:6};
+ const items=[{id:0,r:2},...S.people.map(p=>({id:p.id,r:ROW[p.cat]??7}))];
+ const rs=[...new Set(items.map(i=>i.r))].sort((a,b)=>a-b),y0=Math.min(124,H*.24),g=clamp((H*.5-y0)/Math.max(1,rs.length-1),30,56);
+ const out={},placed=[];
+ const place=(i,des)=>{let best=des,bg=-1e9;
+  for(let k=0;k<30;k++){const x=clamp(des+(k%2?-1:1)*Math.ceil(k/2)*14,30,W-30);let gp=1e9;
+   for(const q of placed)gp=Math.min(gp,Math.abs(x-q.x)-(q.r===i.r?64:34));
+   if(gp>=0){best=x;break}if(gp>bg){bg=gp;best=x}}
+  placed.push({x:best,r:i.r});out[i.id]={x:best-cx,y:y0+rs.indexOf(i.r)*g}};
+ place(items[0],cx);
+ for(const r of rs){const li=items.filter(i=>i.r===r&&i.id!==0),m=li.length,sp=Math.min(96,(W-60)/Math.max(1,m));
+  li.forEach((i,k)=>place(i,r===2?cx+(k%2?-1:1)*72*(Math.floor(k/2)+1):cx+(k-(m-1)/2)*sp))}
+ return out}
+
+function draw(){
+ ctx.clearRect(0,0,W,H);
+ const g=ctx.createRadialGradient(W/2,H*.4,0,W/2,H*.4,H);g.addColorStop(0,'#1a141c');g.addColorStop(1,'#050408');
+ ctx.fillStyle=g;ctx.fillRect(0,0,W,H);
+ const ppy=H/22,cx=W/2,L=lanes();
+ ctx.fillStyle='#d9c3a0';
+ for(const d of dust){ctx.globalAlpha=d.a;ctx.fillRect(d.x*W,(d.y*H+T*ppy*d.s*1.3)%H,1,d.l*d.s)}
+ const labels=[];
+ const all=[{id:0,name:S.name||'Dig',cat:'you',from:S.birth,st:'med'},...S.people];
+ if('letterSpacing' in ctx)ctx.letterSpacing='2.5px';
+ ctx.textAlign='center';
+ for(const p of all){
+  const s=yr(p.from),e=p.st==='med'||!p.to?Infinity:yr(p.to),you=p.id===0;
+  if(T<s)continue;
+  const lane=L[p.id].x,hy0=L[p.id].y,vis=(H-hy0+30)/ppy,dir=lane<0?-1:1,col=you?'255,255,255':CATS[p.cat].c;
+  const wt=performance.now()/1000,ph=(p.id%97)*1.7,amp=you?5:7;
+  const wob=d=>{const a=Math.max(0,T-d);return amp*(.4+Math.min(a/6,1))*(Math.sin(a*2.4-wt*.7+ph)+.5*Math.sin(a*5.1-wt*1.1+ph*2))};
+  const pos=d=>[cx+lane+wob(d)+(p.st==='vaek'&&d>e?dir*14*Math.pow(d-e,1.7):0),hy0+(T-d)*ppy];
+  const f=p.st==='dod'&&T>e?Math.max(0,1-(T-e)/4):1;
+  if(f<=0)continue;
+  const de=p.st==='dod'?Math.min(T,e):T,d0=Math.max(s,T-vis);
+  if(de>d0){
+   const n=Math.max(1,Math.ceil((de-d0)/.08));let pr=pos(d0);
+   ctx.strokeStyle='rgb('+col+')';ctx.lineWidth=you?2.2:1.4;ctx.lineCap='round';
+   for(let i=1;i<=n;i++){
+    const d=d0+(de-d0)*i/n,c=pos(d);
+    const yf=clamp(1-c[1]/(H*1.02)),a=Math.pow(yf,1.4)*(you?1:clamp((d-s)/.6))*f*(d>e?clamp(1-(d-e)/6):1)*.85;
+    ctx.globalAlpha=a;ctx.lineWidth=(you?2.2:1.4)*(.45+.55*yf);ctx.beginPath();ctx.moveTo(pr[0],pr[1]);ctx.lineTo(c[0],c[1]);ctx.stroke();pr=c;
+   }
+  }
+  let ha=(you?1:clamp((T-s)/.4));
+  if(p.st==='dod'&&T>e)ha*=clamp(1-(T-e)/1.5);
+  if(p.st==='vaek'&&T>e)ha*=clamp(1-(T-e)/6);
+  if(ha<=0)continue;
+  const [hx,hy]=pos(de),r=(you?22:14)*(1+.08*Math.sin(wt*1.5+ph));
+  const rg=ctx.createRadialGradient(hx,hy,0,hx,hy,r);
+  rg.addColorStop(0,'rgba(255,255,255,'+ha+')');rg.addColorStop(.25,'rgba('+col+','+ha*.6+')');rg.addColorStop(1,'rgba('+col+',0)');
+  ctx.globalAlpha=1;ctx.fillStyle=rg;ctx.beginPath();ctx.arc(hx,hy,r,0,7);ctx.fill();
+  labels.push({t:p.name.toUpperCase(),x:hx,y:hy-(you?20:16),a:ha,pr:you?9:ha});
+ }
+ ctx.globalAlpha=1;ctx.font='600 11px system-ui,sans-serif';ctx.textAlign='center';ctx.lineJoin='round';ctx.lineWidth=3;
+ const boxes=[];labels.sort((a,b)=>b.pr-a.pr);
+ for(const l of labels){
+  const w=ctx.measureText(l.t).width+8;let ok=null;
+  for(const dy of [0,-13,13,-26,26]){
+   const bx=l.x-w/2,by=l.y+dy-11;
+   if(!boxes.some(b=>bx<b[2]&&bx+w>b[0]&&by<b[3]&&by+13>b[1])){ok=dy;boxes.push([bx,by,bx+w,by+13]);break}
+  }
+  if(ok===null)continue;
+  ctx.strokeStyle='rgba(5,4,8,'+l.a*.85+')';ctx.strokeText(l.t,l.x,l.y+ok);
+  ctx.fillStyle='rgba(236,230,220,'+l.a*.8+')';ctx.fillText(l.t,l.x,l.y+ok);
+ }
+ ctx.globalAlpha=1;
+}
+function frame(now){
+ const dt=Math.min(.05,(now-last)/1000);last=now;
+ const b=yr(S.birth),e=Math.max(b+1,todayY());
+ if(playing){T+=dt*SPEED;if(T>=e){T=e;playing=false}}
+ T=clamp(T,b,e);
+ draw();
+ $('#age').textContent=Math.floor(T-b);$('#yr').textContent=String(Math.floor(T));
+ $('#sl').value=(T-b)/(e-b)*1000;$('#play').textContent=playing?'❚❚':'▶';
+ requestAnimationFrame(frame);
+}
+$('#play').onclick=()=>{const b=yr(S.birth),e=Math.max(b+1,todayY());if(T>=e-.001)T=b;playing=!playing};
+$('#sl').oninput=ev=>{playing=false;const b=yr(S.birth),e=Math.max(b+1,todayY());T=b+(e-b)*ev.target.value/1000};
+
+/* redigering */
+let editId=null;
+$('#fc').innerHTML=Object.entries(CATS).map(([k,v])=>'<option value="'+k+'">'+v.n+'</option>').join('');
+const panel=$('#panel');
+function list(){
+ $('#list').innerHTML=S.people.map(p=>'<li><span class="d" style="background:rgb('+CATS[p.cat].c+')"></span><span class="t">'+esc(p.name)+'<small>'+p.from.slice(0,4)+(p.to&&p.st!=='med'?'–'+p.to.slice(0,4):'')+' · '+ST[p.st]+'</small></span><button data-e="'+p.id+'">✎</button><button data-x="'+p.id+'">×</button></li>').join('');
+}
+const esc=s=>s.replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+function resetForm(){editId=null;$('#fn').value='';$('#fc').value='familie';$('#ff').value=S.birth;$('#fs').value='med';$('#ft').value='';
+ $('#tw').style.visibility='hidden';$('#fh').textContent='Tilføj person';$('#save').textContent='Tilføj';$('#cancel').hidden=true}
+$('#fs').onchange=()=>{$('#tw').style.visibility=$('#fs').value==='med'?'hidden':'visible'};
+$('#list').onclick=ev=>{
+ const x=ev.target.dataset.x,e=ev.target.dataset.e;
+ if(x){S.people=S.people.filter(p=>p.id!=x);save();list();if(editId==x)resetForm()}
+ if(e){const p=S.people.find(p=>p.id==e);editId=p.id;$('#fn').value=p.name;$('#fc').value=p.cat;$('#ff').value=p.from;$('#fs').value=p.st;$('#ft').value=p.to||'';
+  $('#tw').style.visibility=p.st==='med'?'hidden':'visible';$('#fh').textContent='Redigér person';$('#save').textContent='Gem';$('#cancel').hidden=false;$('#fn').focus()}
+};
+$('#save').onclick=()=>{
+ const name=$('#fn').value.trim();if(!name)return $('#fn').focus();
+ const st=$('#fs').value,p={id:editId||Date.now(),name,cat:$('#fc').value,from:$('#ff').value||S.birth,st};
+ if(st!=='med'){p.to=$('#ft').value;if(!p.to)return $('#ft').focus()}
+ if(editId)S.people=S.people.map(q=>q.id===editId?p:q);else S.people.push(p);
+ save();list();resetForm();
+};
+$('#cancel').onclick=resetForm;
+$('#nm').oninput=ev=>{S.name=ev.target.value;save()};
+$('#bd').onchange=ev=>{if(ev.target.value){S.birth=ev.target.value;save();T=yr(S.birth);playing=true}};
+$('#ed').onclick=()=>{$('#yl').value=S.yt?'https://youtu.be/'+S.yt:'';$('#nm').value=S.name;$('#bd').value=S.birth;list();resetForm();panel.hidden=false;playing=false};
+$('#close').onclick=()=>{panel.hidden=true};
+
+/* ambient klavermusik (genereret, ingen stemmer) */
+let AC=null,master,bus,inp,musicOn=false,noteTimer=null;
+function setupAudio(){
+ AC=new (window.AudioContext||window.webkitAudioContext)();
+ master=AC.createGain();master.gain.value=0;master.connect(AC.destination);
+ const len=AC.sampleRate*6,buf=AC.createBuffer(2,len,AC.sampleRate);
+ for(let c=0;c<2;c++){const d=buf.getChannelData(c);for(let i=0;i<len;i++)d[i]=(Math.random()*2-1)*Math.pow(1-i/len,3)}
+ const rev=AC.createConvolver();rev.buffer=buf;
+ const wet=AC.createGain(),dry=AC.createGain();wet.gain.value=.55;dry.gain.value=.8;
+ bus=AC.createGain();bus.connect(dry);bus.connect(rev);rev.connect(wet);dry.connect(master);wet.connect(master);
+ inp=AC.createBiquadFilter();inp.type='lowpass';inp.frequency.value=2600;inp.connect(bus);
+}
+function key(f,vel){
+ const t=AC.currentTime,pan=AC.createStereoPanner?AC.createStereoPanner():null;
+ if(pan){pan.pan.value=Math.random()*.8-.4;pan.connect(inp)}
+ [[1,1,'triangle'],[2,.35,'sine'],[3,.12,'sine'],[4,.05,'sine']].forEach(([m,a,ty])=>{
+  const o=AC.createOscillator(),g=AC.createGain();o.type=ty;o.frequency.value=f*m;
+  g.gain.setValueAtTime(0,t);g.gain.linearRampToValueAtTime(vel*a,t+.012);
+  g.gain.exponentialRampToValueAtTime(vel*a*.3,t+.4);g.gain.exponentialRampToValueAtTime(.0001,t+5.5);
+  o.connect(g);g.connect(pan||inp);o.start(t);o.stop(t+5.6);
+ });
+}
+const CH=[{r:110,t:[220,261.63,329.63,440,523.25]},{r:87.31,t:[174.61,220,261.63,349.23,440]},{r:130.81,t:[196,261.63,329.63,392,523.25]},{r:98,t:[196,246.94,293.66,392,493.88]}];
+let ci=0,stp=0;
+function bell(){
+ if(!musicOn)return;
+ const c=CH[ci%4];
+ if(stp===0)key(c.r,.16);else if(Math.random()>.2)key(c.t[Math.floor(Math.random()*c.t.length)],.07+Math.random()*.04);
+ stp++;if(stp>=5+Math.floor(Math.random()*2)){stp=0;ci++}
+ noteTimer=setTimeout(bell,stp===0?2600:900+Math.random()*1500);
+}
+
+/* deling og sikkerhedskopi */
+const APP=location.href.split('#')[0];
+const enc=()=>'LL1:'+btoa(unescape(encodeURIComponent(JSON.stringify(S))));
+const dec=t=>{const m=t.match(/LL1:[A-Za-z0-9+\/=]+/);return m?JSON.parse(decodeURIComponent(escape(atob(m[0].slice(4))))):JSON.parse(t)};
+const toast=m=>{const t=$('#toast');t.textContent=m;t.hidden=false;clearTimeout(toast.h);toast.h=setTimeout(()=>{t.hidden=true},2800)};
+$('#sh').onclick=async()=>{
+ const txt='Se mit livs lys ✨\n'+APP+'\nÅbn siden, tryk Redigér → Indlæs data og indsæt hele denne besked:\n'+enc();
+ $('#bk').value=txt;
+ try{if(navigator.share){await navigator.share({title:'Livets lys',text:txt});return}}catch(e){if(e&&e.name==='AbortError')return}
+ try{await navigator.clipboard.writeText(txt);toast('Kopieret – indsæt i en besked')}
+ catch(e){$('#nm').value=S.name;$('#bd').value=S.birth;list();resetForm();panel.hidden=false;playing=false;$('#bk').select();toast('Markér og kopiér teksten nederst')}
+};
+$('#ex').onclick=()=>{$('#bk').value=JSON.stringify(S);$('#bk').select()};
+$('#im').onclick=()=>{try{const o=dec($('#bk').value);if(!o||!Array.isArray(o.people)||!o.birth)throw 0;S=o;save();$('#nm').value=S.name||'';$('#bd').value=S.birth;list();resetForm();T=yr(S.birth)}catch(e){$('#bk').value='Kunne ikke læse data'}};
+
+/* musik: YouTube eller klaver */
+const yt=on=>{const w=$('#ytw');w.hidden=!on;w.innerHTML=on?'<iframe src="https://www.youtube.com/embed/'+S.yt+'?autoplay=1&loop=1&playlist='+S.yt+'&playsinline=1" allow="autoplay; encrypted-media" allowfullscreen style="width:100%;height:100%;border:0"></iframe>':''};
+const ytOff=()=>{musicOn=false;$('#mu').classList.remove('on');yt(false)};
+$('#ys').onclick=()=>{const v=$('#yl').value.trim(),m=v.match(/(?:youtu\.be\/|v=|embed\/|shorts\/)([A-Za-z0-9_-]{11})/)||v.match(/^([A-Za-z0-9_-]{11})$/);
+ if(!m)return toast('Kunne ikke finde et YouTube-link');
+ S.yt=m[1];save();ytOff();toast('Gemt – tryk ♪ for at afspille')};
+$('#yx').onclick=()=>{S.yt='';save();$('#yl').value='';ytOff();toast('Bruger klavermusik')};
+$('#mu').onclick=()=>{
+ if(S.yt){musicOn=!musicOn;$('#mu').classList.toggle('on',musicOn);yt(musicOn);return}
+ try{
+  if(!AC)setupAudio();
+  musicOn=!musicOn;$('#mu').classList.toggle('on',musicOn);
+  if(musicOn){AC.resume();master.gain.setTargetAtTime(.55,AC.currentTime,2.5);bell()}
+  else{clearTimeout(noteTimer);master.gain.setTargetAtTime(0,AC.currentTime,.8);setTimeout(()=>{if(!musicOn)AC.suspend()},3500)}
+ }catch(e){}
+};
+requestAnimationFrame(frame);
+</script></body></html>
