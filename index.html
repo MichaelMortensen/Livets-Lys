@@ -1,7 +1,7 @@
 <!doctype html>
 <html lang="da"><head><meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-<title>Livets-lys</title>
+<title>Livets lys</title>
 <style>
 :root{color-scheme:dark;box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px);
 --panel:#16131c;--ptext:#ece6dc;--pmute:#9a93a3;--pline:#2d2937;--inp:#0e0c12;--acc:#f0c987}
@@ -47,6 +47,7 @@ li button,.btn{background:none;border:1px solid var(--pline);color:var(--ptext);
   <div class="row"><div><label>Type</label><select id="fc"></select></div><div><label>Kom ind i dit liv</label><input id="ff" type="date"></div></div>
   <div class="row"><div><label>Status</label><select id="fs"><option value="med">Stadig med mig</option><option value="vaek">Gået ud af mit liv</option><option value="dod">Død</option></select></div><div id="tw"><label>Dato</label><input id="ft" type="date"></div></div>
   <div class="acts"><button class="btn p" id="save">Tilføj</button><button class="btn" id="cancel" hidden>Annullér</button><button class="btn" id="close" style="margin-left:auto">Luk</button></div>
+  <h3>Hastighed</h3><select id="sp"><option value="0.5">Meget langsom</option><option value="0.8">Langsom</option><option value="1.4">Normal</option></select>
   <h3>Musik fra YouTube</h3><input id="yl" placeholder="Indsæt YouTube-link">
   <div class="acts"><button class="btn" id="ys">Gem link</button><button class="btn" id="yx">Brug klaver i stedet</button></div>
   <h3>Sikkerhedskopi</h3><textarea id="bk" rows="3" placeholder="Tryk Vis data og gem teksten et sted. Indsæt den her og tryk Indlæs data for at gendanne."></textarea>
@@ -80,7 +81,7 @@ const cv=$('#cv'),ctx=cv.getContext('2d');let W=300,H=500;
 function fit(){const d=Math.min(devicePixelRatio||1,2),r=cv.getBoundingClientRect();W=r.width;H=r.height;cv.width=W*d;cv.height=H*d;ctx.setTransform(d,0,0,d,0,0)}
 new ResizeObserver(fit).observe($('#stage'));fit();
 
-const SPEED=1.4;let T=yr(S.birth),playing=true,last=performance.now();
+const speed=()=>S.spd||.8;let wait=3,T=yr(S.birth),playing=true,last=performance.now();
 const todayY=()=>Date.now()/31557600000+1970;
 const dust=Array.from({length:90},()=>({x:Math.random(),y:Math.random(),l:Math.random()*30+8,s:Math.random()*.6+.2,a:Math.random()*.3+.05}));
 
@@ -142,7 +143,7 @@ function draw(){
  ctx.globalAlpha=1;ctx.font='600 11px system-ui,sans-serif';ctx.textAlign='center';ctx.lineJoin='round';ctx.lineWidth=3;
  const boxes=[];labels.sort((a,b)=>b.pr-a.pr);
  for(const l of labels){
-  const w=ctx.measureText(l.t).width+8;let ok=null;
+  const w=ctx.measureText(l.t).width+8;let ok=null;l.x=clamp(l.x,w/2+2,W-w/2-2);
   for(const dy of [0,-13,13,-26,26]){
    const bx=l.x-w/2,by=l.y+dy-11;
    if(!boxes.some(b=>bx<b[2]&&bx+w>b[0]&&by<b[3]&&by+13>b[1])){ok=dy;boxes.push([bx,by,bx+w,by+13]);break}
@@ -156,14 +157,14 @@ function draw(){
 function frame(now){
  const dt=Math.min(.05,(now-last)/1000);last=now;
  const b=yr(S.birth),e=Math.max(b+1,todayY());
- if(playing){T+=dt*SPEED;if(T>=e){T=e;playing=false}}
+ if(playing){if(wait>0)wait-=dt;else T+=dt*speed();if(T>=e){T=e;playing=false}}
  T=clamp(T,b,e);
  draw();
  $('#age').textContent=Math.floor(T-b);$('#yr').textContent=String(Math.floor(T));
  $('#sl').value=(T-b)/(e-b)*1000;$('#play').textContent=playing?'❚❚':'▶';
  requestAnimationFrame(frame);
 }
-$('#play').onclick=()=>{const b=yr(S.birth),e=Math.max(b+1,todayY());if(T>=e-.001)T=b;playing=!playing};
+$('#play').onclick=()=>{const b=yr(S.birth),e=Math.max(b+1,todayY());if(T>=e-.001){T=b;wait=3}playing=!playing};
 $('#sl').oninput=ev=>{playing=false;const b=yr(S.birth),e=Math.max(b+1,todayY());T=b+(e-b)*ev.target.value/1000};
 
 /* redigering */
@@ -191,9 +192,10 @@ $('#save').onclick=()=>{
  save();list();resetForm();
 };
 $('#cancel').onclick=resetForm;
+$('#sp').onchange=ev=>{S.spd=+ev.target.value;save()};
 $('#nm').oninput=ev=>{S.name=ev.target.value;save()};
-$('#bd').onchange=ev=>{if(ev.target.value){S.birth=ev.target.value;save();T=yr(S.birth);playing=true}};
-$('#ed').onclick=()=>{$('#yl').value=S.yt?'https://youtu.be/'+S.yt:'';$('#nm').value=S.name;$('#bd').value=S.birth;list();resetForm();panel.hidden=false;playing=false};
+$('#bd').onchange=ev=>{if(ev.target.value){S.birth=ev.target.value;save();T=yr(S.birth);playing=true;wait=3}};
+$('#ed').onclick=()=>{$('#sp').value=String(S.spd||.8);$('#yl').value=S.yt?'https://youtu.be/'+S.yt:'';$('#nm').value=S.name;$('#bd').value=S.birth;list();resetForm();panel.hidden=false;playing=false};
 $('#close').onclick=()=>{panel.hidden=true};
 
 /* ambient klavermusik (genereret, ingen stemmer) */
@@ -241,7 +243,7 @@ $('#sh').onclick=async()=>{
  catch(e){$('#nm').value=S.name;$('#bd').value=S.birth;list();resetForm();panel.hidden=false;playing=false;$('#bk').select();toast('Markér og kopiér teksten nederst')}
 };
 $('#ex').onclick=()=>{$('#bk').value=JSON.stringify(S);$('#bk').select()};
-$('#im').onclick=()=>{try{const o=dec($('#bk').value);if(!o||!Array.isArray(o.people)||!o.birth)throw 0;S=o;save();$('#nm').value=S.name||'';$('#bd').value=S.birth;list();resetForm();T=yr(S.birth)}catch(e){$('#bk').value='Kunne ikke læse data'}};
+$('#im').onclick=()=>{try{const o=dec($('#bk').value);if(!o||!Array.isArray(o.people)||!o.birth)throw 0;S=o;if(S.yt===undefined)S.yt='sFSWlfZ4CXM';S.people.forEach(p=>{if(p.cat==='familie')p.cat=GUESS(p.name)});save();$('#nm').value=S.name||'';$('#bd').value=S.birth;list();resetForm();T=yr(S.birth);wait=3}catch(e){$('#bk').value='Kunne ikke læse data'}};
 
 /* musik: YouTube eller klaver */
 const yt=on=>{const w=$('#ytw');w.hidden=!on;w.innerHTML=on?'<iframe src="https://www.youtube.com/embed/'+S.yt+'?autoplay=1&loop=1&playlist='+S.yt+'&playsinline=1" allow="autoplay; encrypted-media" allowfullscreen style="width:100%;height:100%;border:0"></iframe>':''};
@@ -251,7 +253,7 @@ $('#ys').onclick=()=>{const v=$('#yl').value.trim(),m=v.match(/(?:youtu\.be\/|v=
  S.yt=m[1];save();ytOff();toast('Gemt – tryk ♪ for at afspille')};
 $('#yx').onclick=()=>{S.yt='';save();$('#yl').value='';ytOff();toast('Bruger klavermusik')};
 $('#mu').onclick=()=>{
- if(S.yt){musicOn=!musicOn;$('#mu').classList.toggle('on',musicOn);yt(musicOn);return}
+ if(S.yt){if(!musicOn&&T-yr(S.birth)<.2){wait=3;playing=true}musicOn=!musicOn;$('#mu').classList.toggle('on',musicOn);yt(musicOn);return}
  try{
   if(!AC)setupAudio();
   musicOn=!musicOn;$('#mu').classList.toggle('on',musicOn);
