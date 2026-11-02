@@ -233,7 +233,10 @@ function bell(){
 /* deling og sikkerhedskopi */
 const APP=location.href.split('#')[0];
 const enc=()=>'LL1:'+btoa(unescape(encodeURIComponent(JSON.stringify(S))));
-const dec=t=>{const m=t.match(/LL1:[A-Za-z0-9+\/=]+/);return m?JSON.parse(decodeURIComponent(escape(atob(m[0].slice(4))))):JSON.parse(t)};
+const dec=t=>{const i=t.indexOf('LL1:');if(i<0)return JSON.parse(t);
+ const tk=[];for(const w of t.slice(i+4).split(/\s+/)){if(!w)continue;if(/^[A-Za-z0-9+\/=_-]+$/.test(w))tk.push(w);else break}
+ for(let k=tk.length;k>0;k--){try{return JSON.parse(decodeURIComponent(escape(atob(tk.slice(0,k).join('').replace(/-/g,'+').replace(/_/g,'/')))))}catch(e){}}
+ throw 0};
 const toast=m=>{const t=$('#toast');t.textContent=m;t.hidden=false;clearTimeout(toast.h);toast.h=setTimeout(()=>{t.hidden=true},2800)};
 $('#sh').onclick=async()=>{
  const txt='Se mit livs lys ✨\n'+APP+'\nÅbn siden, tryk Redigér → Indlæs data og indsæt hele denne besked:\n'+enc();
@@ -243,7 +246,7 @@ $('#sh').onclick=async()=>{
  catch(e){$('#nm').value=S.name;$('#bd').value=S.birth;list();resetForm();panel.hidden=false;playing=false;$('#bk').select();toast('Markér og kopiér teksten nederst')}
 };
 $('#ex').onclick=()=>{$('#bk').value=JSON.stringify(S);$('#bk').select()};
-$('#im').onclick=()=>{try{const o=dec($('#bk').value);if(!o||!Array.isArray(o.people)||!o.birth)throw 0;S=o;if(S.yt===undefined)S.yt='sFSWlfZ4CXM';S.people.forEach(p=>{if(p.cat==='familie')p.cat=GUESS(p.name)});save();$('#nm').value=S.name||'';$('#bd').value=S.birth;list();resetForm();T=yr(S.birth);wait=3}catch(e){$('#bk').value='Kunne ikke læse data'}};
+$('#im').onclick=()=>{try{const o=dec($('#bk').value);if(!o||!Array.isArray(o.people)||!o.birth)throw 0;S=o;if(S.yt===undefined)S.yt='sFSWlfZ4CXM';S.people.forEach(p=>{if(p.cat==='familie')p.cat=GUESS(p.name)});save();$('#nm').value=S.name||'';$('#bd').value=S.birth;list();resetForm();T=yr(S.birth);wait=3}catch(e){$('#bk').value='Kunne ikke læse data. Er hele beskeden kopieret med, helt til sidste tegn?'}};
 
 /* musik: YouTube eller klaver */
 const yt=on=>{const w=$('#ytw');w.hidden=!on;w.innerHTML=on?'<iframe src="https://www.youtube.com/embed/'+S.yt+'?autoplay=1&loop=1&playlist='+S.yt+'&playsinline=1" allow="autoplay; encrypted-media" allowfullscreen style="width:100%;height:100%;border:0"></iframe>':''};
